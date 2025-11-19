@@ -58,7 +58,7 @@ jobs:
         ./dist/access-bypass-tester --help
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: access-bypass-tester-${{ runner.os }}
         path: dist/
