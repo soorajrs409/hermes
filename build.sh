@@ -36,7 +36,7 @@ echo "Installing dependencies..."
 $PIP_CMD install -r requirements.txt
 $PIP_CMD install nuitka ordered-set zstandard
 
-# Build with Nuitka
+# Build with Nuitka (static linking for better compatibility)
 echo "Building binary with Nuitka..."
 $PYTHON_CMD -m nuitka \
     --onefile \
@@ -45,6 +45,8 @@ $PYTHON_CMD -m nuitka \
     --assume-yes-for-downloads \
     --remove-output \
     --no-deployment-flag=self-execution \
+    --static-libpython=yes \
+    --linux-onefile-icon=access_bypass_tester_v2.py \
     access_bypass_tester_v2.py
 
 # Make executable (skip on Windows)
