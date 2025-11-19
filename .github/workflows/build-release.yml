@@ -44,15 +44,44 @@ jobs:
         echo -e "\nTesting basic functionality:"
         ./dist/access-bypass-tester --help >/dev/null 2>&1 && echo "Binary functional test passed" || echo "Binary test failed"
 
-    - name: Get version from tag
+    - name: Get version info
       id: get_version
-      run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      run: |
+        if [[ $GITHUB_REF == refs/tags/* ]]; then
+          # Running on a tag
+          VERSION="${GITHUB_REF#refs/tags/}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Running on tag: $VERSION"
+        elif [[ $GITHUB_EVENT_NAME == "workflow_dispatch" ]]; then
+          # Manual trigger - use commit SHA as version
+          VERSION="manual-${GITHUB_SHA::8}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Manual build: $VERSION"
+        else
+          echo "Error: This workflow should only run on tags or manual dispatch"
+          echo "GITHUB_REF: $GITHUB_REF"
+          echo "GITHUB_EVENT_NAME: $GITHUB_EVENT_NAME"
+          exit 1
+        fi
 
     - name: Create release archive
       run: |
         cd dist
-        tar -czf access-bypass-tester-${{ steps.get_version.outputs.version }}-linux-x64.tar.gz access-bypass-tester
-        sha256sum access-bypass-tester-${{ steps.get_version.outputs.version }}-linux-x64.tar.gz > access-bypass-tester-${{ steps.get_version.outputs.version }}-linux-x64.tar.gz.sha256
+        echo "Contents of dist directory:"
+        ls -la
+        if [ ! -f "access-bypass-tester" ]; then
+          echo "Error: Binary 'access-bypass-tester' not found in dist/"
+          exit 1
+        fi
+        ARCHIVE_NAME="access-bypass-tester-${{ steps.get_version.outputs.version }}-linux-x64.tar.gz"
+        echo "Creating archive: $ARCHIVE_NAME"
+        tar -czf "$ARCHIVE_NAME" access-bypass-tester
+        if [ ! -f "$ARCHIVE_NAME" ]; then
+          echo "Error: Failed to create archive $ARCHIVE_NAME"
+          exit 1
+        fi
+        sha256sum "$ARCHIVE_NAME" > "${ARCHIVE_NAME}.sha256"
+        echo "Archive created successfully"
 
     - name: Create GitHub Release
       id: create_release
@@ -65,5 +94,6 @@ jobs:
         files: |
           dist/access-bypass-tester-${{ steps.get_version.outputs.version }}-linux-x64.tar.gz
           dist/access-bypass-tester-${{ steps.get_version.outputs.version }}-linux-x64.tar.gz.sha256
+        fail_on_unmatched_files: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

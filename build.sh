@@ -5,20 +5,40 @@ set -e
 
 echo "Building Access Control Bypass Tester..."
 
-# Check if Python 3 is available
-if ! command -v python3 &> /dev/null; then
+# Check if Python 3 is available (try python3 first, then python)
+PYTHON_CMD=""
+if command -v python3 &> /dev/null; then
+    PYTHON_CMD="python3"
+elif command -v python &> /dev/null && python --version 2>&1 | grep -q "Python 3"; then
+    PYTHON_CMD="python"
+else
     echo "Python 3 is required but not installed. Aborting."
     exit 1
 fi
 
+echo "Using Python command: $PYTHON_CMD"
+
+# Determine pip command
+PIP_CMD=""
+if command -v pip3 &> /dev/null; then
+    PIP_CMD="pip3"
+elif command -v pip &> /dev/null; then
+    PIP_CMD="pip"
+else
+    echo "pip is required but not installed. Aborting."
+    exit 1
+fi
+
+echo "Using pip command: $PIP_CMD"
+
 # Install dependencies
 echo "Installing dependencies..."
-pip install -r requirements.txt
-pip install nuitka ordered-set zstandard
+$PIP_CMD install -r requirements.txt
+$PIP_CMD install nuitka ordered-set zstandard
 
 # Build with Nuitka
 echo "Building binary with Nuitka..."
-python3 -m nuitka \
+$PYTHON_CMD -m nuitka \
     --onefile \
     --output-filename=access-bypass-tester \
     --output-dir=dist \
@@ -27,8 +47,10 @@ python3 -m nuitka \
     --no-deployment-flag=self-execution \
     access_bypass_tester_v2.py
 
-# Make executable
-chmod +x dist/access-bypass-tester
+# Make executable (skip on Windows)
+if [[ "$OSTYPE" != "msys" ]] && [[ "$OSTYPE" != "win32" ]]; then
+    chmod +x dist/access-bypass-tester
+fi
 
 # Test the binary
 echo "Testing binary functionality..."
